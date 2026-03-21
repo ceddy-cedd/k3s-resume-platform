@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rss-api-ingress
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: rss.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: rss-api-service
+                port:
+                  number: 8000

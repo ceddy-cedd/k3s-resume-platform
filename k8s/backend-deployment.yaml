@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rss-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rss-api
+  template:
+    metadata:
+      labels:
+        app: rss-api
+    spec:
+      containers:
+        - name: rss-api
+          image: rss-api:local
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8000
