@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: rss-api
-          image: rss-api:local
-          imagePullPolicy: Never
+          image: ghcr.io/ceddy-cedd/k3s-resume-platform/rss-api:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
