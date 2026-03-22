@@ -11,7 +11,7 @@ RSS_FEEDS = [
 
 @app.get("/")
 def read_root():
-    return {"message": "Tech RSS Aggregator"}
+    return {"message": "Phase 7 rollout test"}
 
 @app.get("/news")
 def get_news():
