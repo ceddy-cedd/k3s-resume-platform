@@ -12,6 +12,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      security-events: write
+
 
     steps:
       - name: Checkout repository
@@ -34,6 +36,26 @@ jobs:
           docker build -t ghcr.io/${{ github.repository }}/rss-api:${IMAGE_TAG} .
           docker tag ghcr.io/${{ github.repository }}/rss-api:${IMAGE_TAG} ghcr.io/${{ github.repository }}/rss-api:${BUILD_TAG}
           docker tag ghcr.io/${{ github.repository }}/rss-api:${IMAGE_TAG} ghcr.io/${{ github.repository }}/rss-api:latest
+
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: ghcr.io/${{ github.repository }}/rss-api:${BUILD_TAG}
+          format: sarif
+          output: trivy-results.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          vuln-type: os,library
+          exit-code: 0
+
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-results.sarif  
+
 
       - name: Push image
         run: |
