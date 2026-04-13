@@ -13,11 +13,22 @@ jobs:
       contents: write
       packages: write
       security-events: write
+      id-token: write
 
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v4.1.0
+
+
+      - name: Install Crane
+        run: |
+          go install github.com/google/go-containerregistry/cmd/crane@latest
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+      
 
       - name: Set image tags
         run: |
@@ -81,3 +92,13 @@ jobs:
           docker push ghcr.io/${{ github.repository }}/rss-api:${IMAGE_TAG}
           docker push ghcr.io/${{ github.repository }}/rss-api:${BUILD_TAG}
           docker push ghcr.io/${{ github.repository }}/rss-api:latest
+
+
+      - name: Sign container image with Cosign
+        env:
+          COSIGN_YES: "true"
+        run: |
+          IMAGE_REPO="ghcr.io/${{ github.repository }}/rss-api"
+          IMAGE_TAG="build-${{ github.run_number }}"
+          DIGEST="$(crane digest ${IMAGE_REPO}:${IMAGE_TAG})"
+          cosign sign "${IMAGE_REPO}@${DIGEST}"
