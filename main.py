@@ -45,8 +45,9 @@ async def add_security_headers(request: Request, call_next):
 async def home(request: Request):
     ensure_feed_cache(max_age_minutes=30)
     return templates.TemplateResponse(
-        "index.html",
-        {
+        request=request,
+        name="index.html",
+        context={
             "request": request,
             "page_title": "RSS Platform",
             "feed_items": get_cached_feed_items(limit=3),
@@ -57,8 +58,9 @@ async def home(request: Request):
 @app.get("/resume", response_class=HTMLResponse)
 async def resume_page(request: Request):
     return templates.TemplateResponse(
-        "resume.html",
-        {
+        request=request,
+        name="resume.html",
+        context={
             "request": request,
             "page_title": "Resume",
         },
@@ -69,8 +71,9 @@ async def resume_page(request: Request):
 async def feeds_page(request: Request):
     ensure_feed_cache(max_age_minutes=30)
     return templates.TemplateResponse(
-        "feeds.html",
-        {
+        request=request,
+        name="feeds.html",
+        context={
             "request": request,
             "page_title": "Feeds",
             "feed_items": get_cached_feed_items(limit=12),
