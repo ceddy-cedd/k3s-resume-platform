@@ -4,3 +4,4 @@ __pycache__/
 rss-api-local.tar
 .env
 .vscode/
+app.db

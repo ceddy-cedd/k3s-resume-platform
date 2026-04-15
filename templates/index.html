@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero">
+    <p class="eyebrow">DevSecOps Demo Application</p>
+    <h1>Resume and RSS aggregation platform built for secure delivery and GitOps operations.</h1>
+    <p class="lead">
+        This application is the live demo component of the K3s Resume Platform, combining a public-facing
+        resume experience with curated technology feed aggregation.
+    </p>
+</section>
+
+<section class="grid-two">
+    <article class="card">
+        <h2>What this app demonstrates</h2>
+        <ul class="clean-list">
+            <li>FastAPI application delivery</li>
+            <li>Template-based rendering with minimal attack surface</li>
+            <li>Containerized deployment workflow</li>
+            <li>GitOps-based runtime reconciliation</li>
+            <li>Security-oriented platform controls</li>
+        </ul>
+    </article>
+
+    <article class="card">
+        <h2>Latest feed preview</h2>
+        {% for item in feed_items %}
+        <div class="feed-preview-item">
+            <strong>
+                <a href="{{ item.link }}" target="_blank" rel="noopener noreferrer">
+                    {{ item.title }}
+                </a>
+            </strong>
+            <p>{{ item.summary }}</p>
+            <p class="meta">{{ item.source }} • {{ item.category }} • {{ item.published_at }}</p>
+        </div>
+        {% endfor %}
+    </article>
+</section>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Feeds</h1>
+
+<article class="card">
+    <h2>Technology Feed Aggregation</h2>
+    <p>
+        This page will display curated RSS feed items across security, cloud, Kubernetes, and DevSecOps topics.
+        Dummy items are shown for the MVP skeleton.
+    </p>
+</article>
+
+{% for item in feed_items %}
+<article class="card">
+    <h2>
+        <a href="{{ item.link }}" target="_blank" rel="noopener noreferrer">
+            {{ item.title }}
+        </a>
+    </h2>
+    <p>{{ item.summary }}</p>
+    <p class="meta">{{ item.source }} • {{ item.category }} • {{ item.published_at }}</p>
+</article>
+{% endfor %}
+{% endblock %}
