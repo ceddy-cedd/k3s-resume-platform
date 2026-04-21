@@ -1,0 +1,125 @@
+name: Sync Operational Proof JSON
+
+on:
+  workflow_run:
+    workflows: ["Build and Push RSS API Image"]
+    types: [completed]
+
+jobs:
+  sync-proof:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Install Crane
+        run: |
+          go install github.com/google/go-containerregistry/cmd/crane@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set workflow metadata
+        run: |
+          echo "RUN_NUMBER=${{ github.event.workflow_run.run_number }}" >> "$GITHUB_ENV"
+          echo "RUN_URL=${{ github.event.workflow_run.html_url }}" >> "$GITHUB_ENV"
+          echo "SHORT_SHA=$(echo '${{ github.event.workflow_run.head_sha }}' | cut -c1-7)" >> "$GITHUB_ENV"
+          echo "BUILD_TAG=build-${{ github.event.workflow_run.run_number }}" >> "$GITHUB_ENV"
+          echo "IMAGE_REPO=ghcr.io/${{ github.repository }}/rss-api" >> "$GITHUB_ENV"
+
+      - name: Resolve image digest
+        run: |
+          DIGEST="$(crane digest "${IMAGE_REPO}:${BUILD_TAG}")"
+          echo "IMAGE_DIGEST=${DIGEST}" >> "$GITHUB_ENV"
+
+      - name: Checkout cedricmiller-site
+        env:
+          TOKEN: ${{ secrets.CM_SITE_REPO_TOKEN }}
+        run: |
+          git clone "https://x-access-token:${TOKEN}@github.com/ceddy-cedd/cedricmiller-site.git" site
+
+      - name: Prepare proof branch
+        working-directory: site
+        run: |
+          git fetch origin main
+          git fetch origin bot/proof-json-update || true
+          if git ls-remote --exit-code --heads origin bot/proof-json-update; then
+            git checkout -B bot/proof-json-update origin/bot/proof-json-update
+          else
+            git checkout -B bot/proof-json-update origin/main
+          fi
+
+      - name: Update assets/proof.json
+        working-directory: site
+        env:
+          RUN_NUMBER: ${{ env.RUN_NUMBER }}
+          RUN_URL: ${{ env.RUN_URL }}
+          SHORT_SHA: ${{ env.SHORT_SHA }}
+          IMAGE_DIGEST: ${{ env.IMAGE_DIGEST }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          proof_path = Path("assets/proof.json")
+          data = json.loads(proof_path.read_text())
+
+          data["pipeline"]["label"] = "CI/CD Pipeline"
+          data["pipeline"]["status"] = "Passing"
+          data["pipeline"]["summary"] = "Latest build, scan, publish, and signing workflow completed successfully."
+          data["pipeline"]["value"] = f"Run #{os.environ['RUN_NUMBER']} · {os.environ['SHORT_SHA']}"
+          data["pipeline"]["url"] = os.environ["RUN_URL"]
+          data["pipeline"]["source_url"] = os.environ["RUN_URL"]
+
+          data["prod_promotion"]["label"] = "Prod Promotion"
+          data["prod_promotion"]["status"] = "Digest-Pinned"
+          data["prod_promotion"]["summary"] = "Production deployment is promoted by immutable image digest."
+          data["prod_promotion"]["value"] = os.environ["IMAGE_DIGEST"][:19] + "..."
+          data["prod_promotion"]["url"] = ""
+          data["prod_promotion"]["source_url"] = "https://github.com/ceddy-cedd/k3s-resume-platform-gitops"
+
+          data["sbom"]["label"] = "SBOM"
+          data["sbom"]["status"] = "Available"
+          data["sbom"]["summary"] = "An SPDX SBOM is generated during the image build workflow."
+          data["sbom"]["value"] = "rss-api-sbom.spdx.json"
+          data["sbom"]["url"] = os.environ["RUN_URL"]
+          data["sbom"]["source_url"] = os.environ["RUN_URL"]
+
+          data["image_signing"]["label"] = "Image Signing"
+          data["image_signing"]["status"] = "Signed"
+          data["image_signing"]["summary"] = "The latest image was signed with Cosign in the delivery workflow."
+          data["image_signing"]["value"] = "Cosign keyless signing"
+          data["image_signing"]["url"] = os.environ["RUN_URL"]
+          data["image_signing"]["source_url"] = os.environ["RUN_URL"]
+
+          data["dev_auto_update"]["label"] = "Dev Auto-Update"
+          data["dev_auto_update"]["status"] = "Active"
+          data["dev_auto_update"]["summary"] = "Development environment updates are propagated through GitOps automation."
+          data["dev_auto_update"]["value"] = "Flux-managed"
+
+          data["policy_enforcement"]["label"] = "Policy Enforcement"
+          data["policy_enforcement"]["status"] = "Enforced"
+          data["policy_enforcement"]["summary"] = "Deployment policy checks are part of the delivery and promotion flow."
+          data["policy_enforcement"]["value"] = "Policy enforced"
+
+          proof_path.write_text(json.dumps(data, indent=2) + "\n")
+          PY
+
+      - name: Commit and push proof branch
+        working-directory: site
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/proof.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Update operational proof JSON from workflow run"
+          git push -u origin bot/proof-json-update
