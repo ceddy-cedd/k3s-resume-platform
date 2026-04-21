@@ -52,6 +52,27 @@ jobs:
             | head -n1)"
           echo "DEV_UPDATE_URL=${DEV_UPDATE_URL}" >> "$GITHUB_ENV"
 
+
+      - name: Resolve latest prod promotion evidence
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PROD_PROMOTION_URL="$(curl -fsSL \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            'https://api.github.com/repos/ceddy-cedd/k3s-resume-platform-gitops/commits?path=clusters/my-cluster/apps/prod/rss-api/backend-deployment.yaml&per_page=20' \
+            | jq -r '.[] | select(.commit.message | test("promote.*prod|prod.*digest|promote.*digest"; "i")) | .html_url' \
+            | head -n1)"
+
+          PROD_PROMOTION_DIGEST="$(curl -fsSL \
+            'https://raw.githubusercontent.com/ceddy-cedd/k3s-resume-platform-gitops/main/clusters/my-cluster/apps/prod/rss-api/backend-deployment.yaml' \
+            | grep -o 'sha256:[a-f0-9]\{64\}' \
+            | head -n1)"
+
+          echo "PROD_PROMOTION_URL=${PROD_PROMOTION_URL}" >> "$GITHUB_ENV"
+          echo "PROD_PROMOTION_DIGEST=${PROD_PROMOTION_DIGEST}" >> "$GITHUB_ENV"
+
+
       - name: Checkout cedricmiller-site
         env:
           TOKEN: ${{ secrets.CM_SITE_REPO_TOKEN }}
@@ -77,6 +98,8 @@ jobs:
           SHORT_SHA: ${{ env.SHORT_SHA }}
           IMAGE_DIGEST: ${{ env.IMAGE_DIGEST }}
           DEV_UPDATE_URL: ${{ env.DEV_UPDATE_URL }}
+          PROD_PROMOTION_URL: ${{ env.PROD_PROMOTION_URL }}
+          PROD_PROMOTION_DIGEST: ${{ env.PROD_PROMOTION_DIGEST }}
         run: |
           python - <<'PY'
           import json
@@ -95,10 +118,10 @@ jobs:
 
           data["prod_promotion"]["label"] = "Prod Promotion"
           data["prod_promotion"]["status"] = "Digest-Pinned"
-          data["prod_promotion"]["summary"] = "Production deployment is promoted by immutable image digest."
-          data["prod_promotion"]["value"] = os.environ["IMAGE_DIGEST"][:19] + "..."
-          data["prod_promotion"]["url"] = ""
-          data["prod_promotion"]["source_url"] = "https://github.com/ceddy-cedd/k3s-resume-platform-gitops"
+          data["prod_promotion"]["summary"] = "Production deployment is currently pinned to an immutable digest in the prod GitOps manifest."
+          data["prod_promotion"]["value"] = os.environ["PROD_PROMOTION_DIGEST"][:19] + "..."
+          data["prod_promotion"]["url"] = os.environ["PROD_PROMOTION_URL"]
+          data["prod_promotion"]["source_url"] = os.environ["PROD_PROMOTION_URL"]
 
           data["sbom"]["label"] = "SBOM"
           data["sbom"]["status"] = "Available"
