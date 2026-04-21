@@ -2,8 +2,8 @@ name: Sync Operational Proof JSON
 
 on:
   workflow_run:
-    workflows: ["Build and Push RSS API Image"]
-    types: [completed]
+    workflows: [ "Build and Push RSS API Image" ]
+    types: [ completed ]
 
 jobs:
   sync-proof:
@@ -40,6 +40,18 @@ jobs:
           DIGEST="$(crane digest "${IMAGE_REPO}:${BUILD_TAG}")"
           echo "IMAGE_DIGEST=${DIGEST}" >> "$GITHUB_ENV"
 
+      - name: Resolve latest dev GitOps update commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DEV_UPDATE_URL="$(curl -fsSL \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            'https://api.github.com/repos/ceddy-cedd/k3s-resume-platform-gitops/commits?path=clusters/my-cluster/apps/dev/rss-api/backend-deployment.yaml&per_page=20' \
+            | jq -r '.[] | select(.commit.message=="feat: update dev rss-api image") | .html_url' \
+            | head -n1)"
+          echo "DEV_UPDATE_URL=${DEV_UPDATE_URL}" >> "$GITHUB_ENV"
+
       - name: Checkout cedricmiller-site
         env:
           TOKEN: ${{ secrets.CM_SITE_REPO_TOKEN }}
@@ -64,6 +76,7 @@ jobs:
           RUN_URL: ${{ env.RUN_URL }}
           SHORT_SHA: ${{ env.SHORT_SHA }}
           IMAGE_DIGEST: ${{ env.IMAGE_DIGEST }}
+          DEV_UPDATE_URL: ${{ env.DEV_UPDATE_URL }}
         run: |
           python - <<'PY'
           import json
@@ -103,8 +116,10 @@ jobs:
 
           data["dev_auto_update"]["label"] = "Dev Auto-Update"
           data["dev_auto_update"]["status"] = "Active"
-          data["dev_auto_update"]["summary"] = "Development environment updates are propagated through GitOps automation."
+          data["dev_auto_update"]["summary"] = "Flux bot updated the dev deployment manifest through GitOps image automation."
           data["dev_auto_update"]["value"] = "Flux-managed"
+          data["dev_auto_update"]["url"] = os.environ["DEV_UPDATE_URL"]
+          data["dev_auto_update"]["source_url"] = os.environ["DEV_UPDATE_URL"]
 
           data["policy_enforcement"]["label"] = "Policy Enforcement"
           data["policy_enforcement"]["status"] = "Enforced"
