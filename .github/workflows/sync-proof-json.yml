@@ -144,10 +144,7 @@ jobs:
           data["dev_auto_update"]["url"] = os.environ["DEV_UPDATE_URL"]
           data["dev_auto_update"]["source_url"] = os.environ["DEV_UPDATE_URL"]
 
-          data["policy_enforcement"]["label"] = "Policy Enforcement"
-          data["policy_enforcement"]["status"] = "Enforced"
-          data["policy_enforcement"]["summary"] = "Deployment policy checks are part of the delivery and promotion flow."
-          data["policy_enforcement"]["value"] = "Policy enforced"
+          data.pop("policy_enforcement", None)
 
           proof_path.write_text(json.dumps(data, indent=2) + "\n")
           PY
